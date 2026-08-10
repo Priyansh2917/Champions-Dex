@@ -19,7 +19,7 @@ from bd_models.models import Ball, BallInstance, Player, Special, Trade, TradeOb
 from settings.models import settings
 from settings.utils import format_currency
 
-from .flags import BallsCountFlags, CreateFlags, GiveBallFlags, SpawnFlags
+from .flags import BallsCountFlags, CreateFlags, GiveBallFlags, SpawnFlags, RareSpawnFlags
 
 if TYPE_CHECKING:
     from ballsdex.packages.countryballs.cog import CountryBallsSpawner
@@ -38,6 +38,7 @@ async def _spawn_bomb(
     special: Special | None = None,
     atk_bonus: int | None = None,
     hp_bonus: int | None = None,
+    countryball_list: list[Ball] | None = None,
 ):
     spawned = 0
     message: discord.Message
@@ -58,7 +59,9 @@ async def _spawn_bomb(
     task = ctx.bot.loop.create_task(update_message_loop())
     try:
         for i in range(n):
-            if not countryball:
+            if countryball_list:
+                ball = countryball_cls(ctx.bot, random.choice(countryball_list))
+            elif not countryball:
                 ball = await countryball_cls.get_random(ctx.bot)
             else:
                 ball = countryball_cls(ctx.bot, countryball)
@@ -150,6 +153,79 @@ async def spawn(ctx: commands.Context[BallsDexBot], *, flags: SpawnFlags):
         await ctx.send(f"{settings.collectible_name.title()} spawned.", ephemeral=True)
         log.info(
             f"{ctx.author} spawned {settings.collectible_name} {ball.name} "
+            f"in {flags.channel or ctx.channel}" + (f" ({', '.join(special_attrs)})." if special_attrs else "."),
+            extra={"webhook": True},
+        )
+
+
+@balls.command()
+@checks.has_permissions("bd_models.add_ballinstance")
+async def rarespawn(ctx: commands.Context[BallsDexBot], *, flags: RareSpawnFlags):
+    """
+    Force spawn a random countryball from a specific rarity range.
+    """
+    cog = cast("CountryBallsSpawner | None", ctx.bot.get_cog("CountryBallsSpawner"))
+    if not cog:
+        prefix = settings.prefix if ctx.bot.intents.message_content or not ctx.bot.user else f"{ctx.bot.user.mention} "
+        await ctx.send(
+            "The `countryballs` package is not loaded, this command is unavailable.\n"
+            "Please resolve the errors preventing this package from loading. Use "
+            f'"{prefix}reload countryballs" to try reloading it.',
+            ephemeral=True,
+        )
+        return
+
+    from bd_models.models import balls as cached_balls
+    countryballs = list(filter(lambda m: m.enabled and flags.min_rating <= m.rarity <= flags.max_rating, cached_balls.values()))
+
+    if not countryballs:
+        await ctx.send(f"No {settings.plural_collectible_name} found in the specified rarity range ({flags.min_rating} - {flags.max_rating}).", ephemeral=True)
+        return
+
+    rarity_counts = {}
+    for cb in countryballs:
+        rarity_counts[cb.rarity] = rarity_counts.get(cb.rarity, 0) + 1
+    
+    count_str = "\\n".join(f"Rarity {k}: {v} cards" for k, v in sorted(rarity_counts.items()))
+    await ctx.send(f"Found {len(countryballs)} cards in range {flags.min_rating}-{flags.max_rating}:\\n{count_str}\\nSpawning...", ephemeral=True)
+
+    special_attrs = []
+    if flags.special is not None:
+        special_attrs.append(f"special={flags.special.name}")
+    if flags.atk_bonus is not None:
+        special_attrs.append(f"atk={flags.atk_bonus}")
+    if flags.hp_bonus is not None:
+        special_attrs.append(f"hp={flags.hp_bonus}")
+
+    if flags.n > 1:
+        await _spawn_bomb(
+            ctx,
+            cog.countryball_cls,
+            None,
+            flags.channel or ctx.channel,  # type: ignore
+            flags.n,
+            flags.special,
+            flags.atk_bonus,
+            flags.hp_bonus,
+            countryball_list=countryballs,
+        )
+        log.info(
+            f"{ctx.author} rarespawned {settings.collectible_name} "
+            f"randomly {flags.n} times in {flags.channel or ctx.channel} (range {flags.min_rating}-{flags.max_rating})"
+            + (f" ({', '.join(special_attrs)})." if special_attrs else "."),
+            extra={"webhook": True},
+        )
+        return
+
+    ball = cog.countryball_cls(ctx.bot, random.choice(countryballs))
+    ball.special = flags.special
+    ball.atk_bonus = flags.atk_bonus
+    ball.hp_bonus = flags.hp_bonus
+    result = await ball.spawn(flags.channel or ctx.channel)  # type: ignore
+
+    if result:
+        log.info(
+            f"{ctx.author} rarespawned {settings.collectible_name} {ball.name} "
             f"in {flags.channel or ctx.channel}" + (f" ({', '.join(special_attrs)})." if special_attrs else "."),
             extra={"webhook": True},
         )

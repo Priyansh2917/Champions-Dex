@@ -39,6 +39,24 @@ class SpawnFlags(FlagConverter):
     hp_bonus: int | None = flag(description="Force the countryball to have a specific health bonus when caught.")
 
 
+class RareSpawnFlags(FlagConverter):
+    min_rating: float = flag(description="Minimum rarity rating of the countryballs to include.")
+    max_rating: float = flag(description="Maximum rarity rating of the countryballs to include.")
+    channel: discord.TextChannel | None = flag(
+        description="The channel you want to spawn the countryball in. Current channel if not specified.", default=None
+    )
+    n: Range[int, 1, 100] = flag(
+        description="The number of countryballs to spawn. Selected randomly among the allowed rarities.",
+        default=1,
+    )
+    special: SpecialTransform | None = flag(
+        description="Force the countryball to have a special attribute when caught."
+    )
+    atk_bonus: int | None = flag(description="Force the countryball to have a specific attack bonus when caught.")
+    hp_bonus: int | None = flag(description="Force the countryball to have a specific health bonus when caught.")
+
+
+
 class GiveBallFlags(FlagConverter):
     countryball: BallTransform = flag(positional=True, description="The countryball you want to give")
     special: SpecialTransform | None = flag(description="A special event to set to this card")
