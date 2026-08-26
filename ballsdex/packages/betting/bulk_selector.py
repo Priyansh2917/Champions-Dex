@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, AsyncIterator, List, Set
 import discord
 from discord.ui import Button, View
 
-from ballsdex.core.models import BallInstance
+from bd_models.models import BallInstance
 from ballsdex.core.utils.buttons import ConfirmChoiceView
 from ballsdex.core.utils.paginator import Pages
 from ballsdex.packages.balls.countryballs_paginator import CountryballsSource

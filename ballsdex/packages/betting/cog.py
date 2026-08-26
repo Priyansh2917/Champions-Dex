@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, cast, Set
 import random
 import asyncio
 
-from ballsdex.core.models import BallInstance
+from bd_models.models import BallInstance
 from ballsdex.core.utils.transformers import BallEnabledTransform, BallInstanceTransform, SpecialEnabledTransform
 from ballsdex.core.utils.sorting import SortingChoices, filter_balls, sort_balls
 from ballsdex.settings import settings
@@ -148,7 +148,7 @@ class BetView(discord.ui.View):
             winner = self.p1 if winner_id == self.p1.id else self.p2
             self.winner = winner
 
-            from ballsdex.core.models import Player
+            from bd_models.models import Player
             winner_player, _ = await Player.get_or_create(discord_id=winner_id)
 
             for p_id, items in self.holdings.items():
