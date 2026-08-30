@@ -300,15 +300,14 @@ class BettingCog(commands.GroupCog, group_name="bet"):
         if sort:
             query = sort_balls(sort, query)
 
-        balls = cast(list[int], await query.values_list("id", flat=True))
-        if not balls:
+        if not await query.aexists():
             return await interaction.followup.send(
                 f"No {settings.plural_collectible_name} found matching criteria.", ephemeral=True
             )
 
-        selector = BetBulkSelector(interaction, balls, self)
-        await selector.start(
-            content=f"Select the {settings.plural_collectible_name} you want to add "
-            "to your bet pool. Note that the display will wipe on pagination however "
-            f"the selected {settings.plural_collectible_name} will remain."
+        selector = BetBulkSelector()
+        await selector.configure(self.bot, self, query)
+        await interaction.followup.send(
+            content=f"Select the {settings.plural_collectible_name} you want to add to your bet pool.",
+            view=selector.view
         )
